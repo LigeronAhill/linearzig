@@ -208,6 +208,22 @@ const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const expectError = std.testing.expectError;
 
+test "Rational.fromFloat: основные случаи" {
+    const half = try Rational.fromFloat(0.5, 100);
+    try expectEqual(half.numerator, 1);
+    try expectEqual(half.denominator, 2);
+
+    const third = try Rational.fromFloat(0.3333333333333333, 100);
+    try expectEqual(third.numerator, 1);
+    try expectEqual(third.denominator, 3);
+}
+
+test "Rational.fromFloat: специальные случаи" {
+    try expectError(error.InvalidNumber, Rational.fromFloat(std.math.nan(f64), 100));
+    try expectError(error.InfiniteNumber, Rational.fromFloat(std.math.inf(f64), 100));
+    try expectError(error.Overflow, Rational.fromFloat(1e100, 1000));
+}
+
 test "Rational.fromFloat: simple" {
     const half = try Rational.fromFloat(0.5, 100);
     try expectEqual(half.numerator, 1);
