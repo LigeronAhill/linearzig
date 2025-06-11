@@ -113,11 +113,14 @@ pub const Rational = struct {
     /// max_denominator - максимально допустимый знаменатель (точность аппроксимации)
     pub fn fromFloat(float: anytype, max_denominator: u32) !Rational {
         const T = @TypeOf(float);
-        // Обработка comptime_float отдельно
-        switch (@TypeOf(float)) {
+        // Проверка типа и обработка comptime_float
+        switch (T) {
             f32, f64 => {},
-            comptime_float => return fromFloat(@as(f64, float), max_denominator),
-            else => @compileError("Unsupported float type with " ++ @typeName(T)),
+            comptime_float => {
+                // Для comptime_float конвертируем в f64
+                return fromFloat(@as(f64, float), max_denominator);
+            },
+            else => @compileError("fromFloat supports only f32, f64 and comptime_float, found " ++ @typeName(T)),
         }
 
         // Обработка специальных случаев
@@ -129,42 +132,50 @@ pub const Rational = struct {
 
         // Особые случаи для 0 и целых чисел
         if (x == 0) return Rational.init(0, 1);
-        if (@floor(x) == x and x <= std.math.maxInt(i64)) {
-            return Rational.init(if (is_negative) -@as(i64, @intFromFloat(x)) else @as(i64, @intFromFloat(x)), 1);
+        // Проверка на целое число, которое помещается в i64
+        if (@floor(x) == x) {
+            if (x <= std.math.maxInt(i64)) {
+                return Rational.init(if (is_negative) -@as(i64, @intFromFloat(x)) else @as(i64, @intFromFloat(x)), 1);
+            }
+            return error.Overflow;
         }
+
         // Алгоритм цепных дробей
-        var m0: u32 = 0;
-        var m1: u32 = 1;
-        var n0: u32 = 1;
-        var n1: u32 = 0;
-        var best_num: u32 = 0;
-        var best_den: u32 = 1;
-        var best_err = x;
+        var m0: u32 = 0; // Предыдущий числитель
+        var m1: u32 = 1; // Текущий числитель
+        var n0: u32 = 1; // Предыдущий знаменатель
+        var n1: u32 = 0; // Текущий знаменатель
+        var best_num: u32 = 0; // Лучший числитель
+        var best_den: u32 = 1; // Лучший знаменатель
+        var best_err = x; // Лучшая погрешность
 
         var current_x = x;
         while (true) {
-            const a = @as(u32, @intFromFloat(current_x));
-            const m2 = m0 + a * m1;
-            const n2 = n0 + a * n1;
+            const a = @as(u32, @intFromFloat(current_x)); // Целая часть
+            const m2 = m0 + a * m1; // Новый числитель
+            const n2 = n0 + a * n1; // Новый знаменатель
 
-            // Проверка на переполнение
+            // Проверка на превышение максимального знаменателя
             if (n2 > max_denominator) break;
 
+            // Вычисление приближения и погрешности
             const approx = @as(f64, @floatFromInt(m2)) / @as(f64, @floatFromInt(n2));
             const err = @abs(approx - x);
 
-            // Сохраняем лучшее приближение
+            // Обновление лучшего приближения
             if (err < best_err) {
                 best_err = err;
                 best_num = m2;
                 best_den = n2;
             }
 
+            // Сдвиг значений для следующей итерации
             m0 = m1;
             n0 = n1;
             m1 = m2;
             n1 = n2;
 
+            // Проверка на завершение
             const frac_part = current_x - @as(f64, @floatFromInt(a));
             if (frac_part == 0) break;
             current_x = 1 / frac_part;
