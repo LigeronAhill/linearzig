@@ -24,7 +24,7 @@ pub const Rational = struct {
     }
 
     /// НОД (алгоритм Евклида)
-    fn gcd(a: i64, b: i64) i64 {
+    fn gcd_evklid(a: i64, b: i64) i64 {
         var x = a;
         var y = b;
         while (y != 0) {
@@ -33,6 +33,37 @@ pub const Rational = struct {
             x = tmp;
         }
         return x;
+    }
+    /// Оптимизированный НОД (бинарный алгоритм)
+    fn gcd(a: i64, b: i64) i64 {
+        // Быстрая проверка на нули
+        if (a == 0) return @intCast(@abs(b));
+        if (b == 0) return @intCast(@abs(a));
+
+        var x: i64 = @intCast(@abs(a));
+        var y: i64 = @intCast(@abs(b));
+
+        // Находим общую степень 2
+        const common_tz = @min(@ctz(x), @ctz(y));
+        const shift = @as(u6, @intCast(@min(common_tz, 63)));
+
+        // Нормализуем, убирая общие множители 2
+        x >>= @as(u6, @intCast(@ctz(x)));
+        y >>= @as(u6, @intCast(@ctz(y)));
+
+        // Основной цикл
+        while (x != y) {
+            if (x > y) {
+                x -= y;
+                x >>= @as(u6, @intCast(@ctz(x)));
+            } else {
+                y -= x;
+                y >>= @as(u6, @intCast(@ctz(y)));
+            }
+        }
+
+        // Безопасный сдвиг с проверкой
+        return if (shift > 0) x << @as(u6, @intCast(shift)) else x;
     }
 
     /// Проверяет переполнение умножения
