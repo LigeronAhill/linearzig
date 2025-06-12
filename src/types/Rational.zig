@@ -224,7 +224,7 @@ pub const Rational = struct {
         return Rational.init(value, 1);
     }
     /// Форматирование для печати (например, `print("{}", .{rational})`)
-    pub fn format(
+    pub fn format_old(
         self: Rational,
         comptime fmt: []const u8,
         options: std.fmt.FormatOptions,
@@ -233,6 +233,44 @@ pub const Rational = struct {
         _ = fmt;
         _ = options;
         try writer.print("{d}/{d}", .{ self.numerator, self.denominator });
+    }
+
+    /// Форматирование для печати (например, `print("{}", .{rational})`)
+    pub fn format(
+        self: Rational,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = fmt;
+        _ = options;
+
+        const abs_num = if (self.numerator < 0) @as(i64, -self.numerator) else self.numerator;
+        const whole_part = @divTrunc(abs_num, self.denominator);
+        const remainder = @mod(abs_num, self.denominator);
+
+        // Выводим знак
+        if (self.numerator < 0) {
+            try writer.writeAll("-");
+        }
+
+        // Если есть целая часть
+        if (whole_part != 0) {
+            try writer.print("{}", .{whole_part});
+
+            // Если есть и дробная часть
+            if (remainder != 0) {
+                try writer.writeAll(" ");
+                try writer.print("{d}/{d}", .{ remainder, self.denominator });
+            }
+        } else {
+            // Только дробная часть или ноль
+            if (remainder != 0) {
+                try writer.print("{d}/{d}", .{ remainder, self.denominator });
+            } else {
+                try writer.writeAll("0");
+            }
+        }
     }
 };
 const expect = std.testing.expect;
@@ -383,4 +421,29 @@ test "Rational.safeMul: переполнение умножения" {
 
 test "Rational.safeAdd: переполнение сложения" {
     try expectError(error.Overflow, Rational.safeAdd(std.math.maxInt(i64), 1));
+}
+
+test "Rational formatting" {
+    // Создаем буфер для тестирования вывода
+    var buf: [32]u8 = undefined;
+
+    // Тест 1: Положительное смешанное число
+    const r1 = try Rational.init(7, 2);
+    try std.testing.expectEqualStrings("3 1/2", try std.fmt.bufPrint(&buf, "{}", .{r1}));
+
+    // Тест 2: Отрицательное смешанное число
+    const r2 = try Rational.init(-5, 2);
+    try std.testing.expectEqualStrings("-2 1/2", try std.fmt.bufPrint(&buf, "{}", .{r2}));
+
+    // Тест 3: Только дробная часть
+    const r3 = try Rational.init(1, 2);
+    try std.testing.expectEqualStrings("1/2", try std.fmt.bufPrint(&buf, "{}", .{r3}));
+
+    // Тест 4: Только целая часть
+    const r4 = try Rational.init(4, 1);
+    try std.testing.expectEqualStrings("4", try std.fmt.bufPrint(&buf, "{}", .{r4}));
+
+    // Тест 5: Ноль
+    const r5 = try Rational.init(0, 1);
+    try std.testing.expectEqualStrings("0", try std.fmt.bufPrint(&buf, "{}", .{r5}));
 }

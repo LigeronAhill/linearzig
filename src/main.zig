@@ -3,9 +3,13 @@ const lib = @import("linearzig");
 const types = lib.types;
 
 pub fn main() !void {
+    const allocator = std.heap.page_allocator;
     const a = try types.Rational.init(1, 2);
     const b = try types.Rational.init(-3, 4);
-
+    var comps = [_]types.Rational{ a, b };
+    const v = try types.Vector.fromComponents(allocator, &comps);
+    defer v.deinit();
+    std.log.info("Vector: {}", .{v});
     const sum = try a.add(b); // 1/2 + (-3/4) = -1/4
     const diff = try a.sub(b); // 1/2 - (-3/4) = 5/4
     const product = try a.mul(b); // 1/2 * (-3/4) = -3/8

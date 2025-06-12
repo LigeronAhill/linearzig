@@ -1,6 +1,6 @@
 //! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
-pub const types = @import("types.zig");
+pub const types = @import("types/types.zig");
 
 pub fn advancedPrint() !void {
     // Stdout is for the actual output of your application, for example if you
