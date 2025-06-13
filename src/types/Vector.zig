@@ -18,7 +18,7 @@ pub const Vector = struct {
     }
 
     /// Создаёт вектор из переданных компонент (копирует данные)
-    pub fn fromComponents(allocator: std.mem.Allocator, components: []const Rational) !Vector {
+    pub fn fromRationalComponents(allocator: std.mem.Allocator, components: []const Rational) !Vector {
         const new_components = try allocator.alloc(Rational, components.len);
         for (components, 0..) |comp, i| {
             new_components[i] = try Rational.init(comp.numerator, comp.denominator);
@@ -28,6 +28,49 @@ pub const Vector = struct {
             .components = new_components,
             .len = components.len,
         };
+    }
+    /// Создаёт вектор из переданных компонент любого числового типа
+    pub fn fromAnyComponents(
+        comptime T: type,
+        allocator: std.mem.Allocator,
+        components: []const T,
+    ) !Vector {
+        // Проверка допустимых типов компонент на этапе компиляции
+        switch (T) {
+            i32, i64, u32, u64 => {
+                const len = components.len;
+                const new_components = try allocator.alloc(Rational, len);
+                errdefer allocator.free(new_components);
+                for (components, 0..) |comp, i| {
+                    new_components[i] = try Rational.fromInt(comp);
+                }
+                return Vector{
+                    .allocator = allocator,
+                    .components = new_components,
+                    .len = len,
+                };
+            },
+            f32, f64 => {
+                const len = components.len;
+                const new_components = try allocator.alloc(Rational, len);
+                errdefer allocator.free(new_components);
+                for (components, 0..) |comp, i| {
+                    new_components[i] = try Rational.fromFloat(comp, 1000);
+                }
+                return Vector{
+                    .allocator = allocator,
+                    .components = new_components,
+                    .len = len,
+                };
+            },
+            Rational => {
+                return fromRationalComponents(allocator, components);
+            },
+            else => {
+                @compileError("Unsupported component type: " ++ @typeName(T) ++
+                    ". Expected: integer, float or Rational");
+            },
+        }
     }
 
     /// Освобождает память вектора
@@ -187,6 +230,27 @@ pub const Vector = struct {
         }
         try writer.writeAll("]");
     }
+    /// Доступ к элементу по индексу (только чтение)
+    pub fn at(self: Vector, index: usize) !Rational {
+        if (index >= self.len) return error.IndexOutOfBounds;
+        return self.components[index];
+    }
+
+    /// Доступ к элементу по индексу с возможностью изменения
+    pub fn atMut(self: *Vector, index: usize) !*Rational {
+        if (index >= self.len) return error.IndexOutOfBounds;
+        return &self.components[index];
+    }
+
+    /// Синтаксический сахар для оператора [] (только чтение)
+    pub fn get(self: Vector, index: usize) !Rational {
+        return self.at(index);
+    }
+
+    /// Синтаксический сахар для оператора [] с возможностью изменения
+    pub fn getMut(self: *Vector, index: usize) !*Rational {
+        return self.atMut(index);
+    }
 };
 
 // Тесты
@@ -194,13 +258,13 @@ test "Vector basic operations" {
     const allocator = std.testing.allocator;
 
     // Создание векторов
-    const v1 = try Vector.fromComponents(allocator, &[_]Rational{
+    const v1 = try Vector.fromRationalComponents(allocator, &[_]Rational{
         try Rational.init(1, 2),
         try Rational.init(3, 4),
     });
     defer v1.deinit();
 
-    const v2 = try Vector.fromComponents(allocator, &[_]Rational{
+    const v2 = try Vector.fromRationalComponents(allocator, &[_]Rational{
         try Rational.init(1, 3),
         try Rational.init(2, 5),
     });
@@ -238,7 +302,7 @@ test "Vector errors" {
 test "Vector iterators" {
     const allocator = std.testing.allocator;
 
-    var vec = try Vector.fromComponents(allocator, &[_]Rational{
+    var vec = try Vector.fromRationalComponents(allocator, &[_]Rational{
         try Rational.init(1, 2),
         try Rational.init(3, 4),
         try Rational.init(5, 6),
@@ -263,21 +327,20 @@ test "Vector iterators" {
 // Обновлённые тесты для сравнения векторов
 test "Vector comparison" {
     const allocator = std.testing.allocator;
-
     // Векторы для тестирования
-    const v1 = try Vector.fromComponents(allocator, &[_]Rational{
+    const v1 = try Vector.fromRationalComponents(allocator, &[_]Rational{
         try Rational.init(3, 1), // Большая норма
         try Rational.init(4, 1),
     });
     defer v1.deinit();
 
-    const v2 = try Vector.fromComponents(allocator, &[_]Rational{
+    const v2 = try Vector.fromRationalComponents(allocator, &[_]Rational{
         try Rational.init(1, 1), // Меньшая норма
         try Rational.init(1, 1),
     });
     defer v2.deinit();
 
-    const v3 = try Vector.fromComponents(allocator, &[_]Rational{
+    const v3 = try Vector.fromRationalComponents(allocator, &[_]Rational{
         try Rational.init(3, 1), // Такая же норма как v1
         try Rational.init(4, 1),
     });
@@ -295,4 +358,28 @@ test "Vector comparison" {
     // Проверка равенства
     try std.testing.expect(v1.eql(v3));
     try std.testing.expect(!v1.eql(v2));
+}
+test "Vector.fromAnyComponents" {
+    const allocator = std.testing.allocator;
+
+    // Из целых чисел
+    const ints = [_]i32{ 1, 2, 3 };
+    const v1 = try Vector.fromAnyComponents(i32, allocator, &ints);
+    defer v1.deinit();
+    try std.testing.expect((try v1.get(1)).equals(try Rational.fromInt(2)));
+
+    // Из float
+    const floats = [_]f64{ 0.5, 1.5 };
+    const v2 = try Vector.fromAnyComponents(f64, allocator, &floats);
+    defer v2.deinit();
+    try std.testing.expect((try v2.get(1)).equals(try Rational.init(3, 2)));
+
+    // Из Rational
+    const rats = [_]Rational{
+        try Rational.init(1, 2),
+        try Rational.init(3, 4),
+    };
+    const v3 = try Vector.fromAnyComponents(Rational, allocator, &rats);
+    defer v3.deinit();
+    try std.testing.expect((try v3.get(1)).equals(try Rational.init(3, 4)));
 }

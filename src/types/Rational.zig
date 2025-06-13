@@ -223,17 +223,6 @@ pub const Rational = struct {
         };
         return Rational.init(value, 1);
     }
-    /// Форматирование для печати (например, `print("{}", .{rational})`)
-    pub fn format_old(
-        self: Rational,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = fmt;
-        _ = options;
-        try writer.print("{d}/{d}", .{ self.numerator, self.denominator });
-    }
 
     /// Форматирование для печати (например, `print("{}", .{rational})`)
     pub fn format(
