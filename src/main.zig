@@ -56,28 +56,22 @@ pub fn main() !void {
 
     std.log.info("Solved: {}", .{x});
 
-    const row_1 = [_]i32{ 1, 1, 1 };
-    const row_1_vec = try types.Vector.fromAnyComponents(i32, allocator, &row_1);
-    defer row_1_vec.deinit();
-    const row_2 = [_]i32{ 1, 2, 2 };
-    const row_2_vec = try types.Vector.fromAnyComponents(i32, allocator, &row_2);
-    defer row_2_vec.deinit();
-    const row_3 = [_]i32{ 2, 3, -4 };
-    const row_3_vec = try types.Vector.fromAnyComponents(i32, allocator, &row_3);
-    defer row_3_vec.deinit();
-    var matrix_rows = [_]types.Vector{ row_1_vec, row_2_vec, row_3_vec };
-    const right_1 = [_]i32{ 6, 11, 3 };
-    const right_1_vec = try types.Vector.fromAnyComponents(i32, allocator, &right_1);
-    defer right_1_vec.deinit();
+    const row_1 = try types.Vector.fromAnyComponents(i32, allocator, &[_]i32{ 1, 1, 1 });
+    defer row_1.deinit();
+    const row_2 = try types.Vector.fromAnyComponents(i32, allocator, &[_]i32{ 1, 2, 2 });
+    defer row_2.deinit();
+    const row_3 = try types.Vector.fromAnyComponents(i32, allocator, &[_]i32{ 2, 3, -4 });
+    defer row_3.deinit();
+    var rows = [_]types.Vector{ row_1, row_2, row_3 };
     var B = try types.Matrix.init(allocator, 3, 3);
-
-    B.rows = &matrix_rows;
-    const x_1 = try B.solve(right_1_vec);
+    B.rows = &rows;
+    const right_1 = try types.Vector.fromAnyComponents(i32, allocator, &[_]i32{ 6, 11, 3 });
+    defer right_1.deinit();
+    const x_1 = try B.solve(right_1);
     std.log.info("1: {}", .{x_1});
-    const right_2 = [_]i32{ 7, 10, 3 };
-    const right_2_vec = try types.Vector.fromAnyComponents(i32, allocator, &right_2);
-    defer right_2_vec.deinit();
-    const x_2 = try B.solve(right_2_vec);
+    const right_2 = try types.Vector.fromAnyComponents(i32, allocator, &[_]i32{ 7, 10, 3 });
+    defer right_2.deinit();
+    const x_2 = try B.solve(right_2);
     std.log.info("2: {}", .{x_2});
     var sum_x = try types.Rational.fromInt(0);
     var x_1_iter = x_1.iterator();
