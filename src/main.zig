@@ -7,7 +7,7 @@ pub fn main() !void {
     const a = try types.Rational.init(1, 2);
     const b = try types.Rational.init(-3, 4);
     var comps = [_]types.Rational{ a, b };
-    const v = try types.Vector.fromComponents(allocator, &comps);
+    const v = try types.Vector.fromRationalComponents(allocator, &comps);
     defer v.deinit();
     std.log.info("Vector: {}", .{v});
     const sum = try a.add(b); // 1/2 + (-3/4) = -1/4
@@ -24,4 +24,69 @@ pub fn main() !void {
 
     // Сравнение
     std.debug.print("a < b? {}\n", .{try a.order(b) == .lt}); // false
+
+    var A = try types.Matrix.init(allocator, 4, 4);
+    defer A.deinit();
+
+    (try A.atMut(0, 0)).* = try types.Rational.fromInt(2);
+    (try A.atMut(0, 1)).* = try types.Rational.fromInt(1);
+    (try A.atMut(0, 2)).* = try types.Rational.fromInt(0);
+    (try A.atMut(0, 3)).* = try types.Rational.fromInt(0);
+
+    (try A.atMut(1, 0)).* = try types.Rational.fromInt(1);
+    (try A.atMut(1, 1)).* = try types.Rational.fromInt(2);
+    (try A.atMut(1, 2)).* = try types.Rational.fromInt(1);
+    (try A.atMut(1, 3)).* = try types.Rational.fromInt(0);
+
+    (try A.atMut(2, 0)).* = try types.Rational.fromInt(0);
+    (try A.atMut(2, 1)).* = try types.Rational.fromInt(1);
+    (try A.atMut(2, 2)).* = try types.Rational.fromInt(2);
+    (try A.atMut(2, 3)).* = try types.Rational.fromInt(1);
+
+    (try A.atMut(3, 0)).* = try types.Rational.fromInt(0);
+    (try A.atMut(3, 1)).* = try types.Rational.fromInt(0);
+    (try A.atMut(3, 2)).* = try types.Rational.fromInt(1);
+    (try A.atMut(3, 3)).* = try types.Rational.fromInt(2);
+
+    const right_part = [_]i32{ 0, 0, 0, 5 };
+    const right = try types.Vector.fromAnyComponents(i32, allocator, &right_part);
+    defer right.deinit();
+    const x = try A.solve(right);
+    defer x.deinit();
+
+    std.log.info("Solved: {}", .{x});
+
+    const row_1 = [_]i32{ 1, 1, 1 };
+    const row_1_vec = try types.Vector.fromAnyComponents(i32, allocator, &row_1);
+    defer row_1_vec.deinit();
+    const row_2 = [_]i32{ 1, 2, 2 };
+    const row_2_vec = try types.Vector.fromAnyComponents(i32, allocator, &row_2);
+    defer row_2_vec.deinit();
+    const row_3 = [_]i32{ 2, 3, -4 };
+    const row_3_vec = try types.Vector.fromAnyComponents(i32, allocator, &row_3);
+    defer row_3_vec.deinit();
+    var matrix_rows = [_]types.Vector{ row_1_vec, row_2_vec, row_3_vec };
+    const right_1 = [_]i32{ 6, 11, 3 };
+    const right_1_vec = try types.Vector.fromAnyComponents(i32, allocator, &right_1);
+    defer right_1_vec.deinit();
+    var B = try types.Matrix.init(allocator, 3, 3);
+
+    B.rows = &matrix_rows;
+    const x_1 = try B.solve(right_1_vec);
+    std.log.info("1: {}", .{x_1});
+    const right_2 = [_]i32{ 7, 10, 3 };
+    const right_2_vec = try types.Vector.fromAnyComponents(i32, allocator, &right_2);
+    defer right_2_vec.deinit();
+    const x_2 = try B.solve(right_2_vec);
+    std.log.info("2: {}", .{x_2});
+    var sum_x = try types.Rational.fromInt(0);
+    var x_1_iter = x_1.iterator();
+    while (x_1_iter.next()) |elem| {
+        sum_x = try sum_x.add(elem);
+    }
+    var x_2_iter = x_2.iterator();
+    while (x_2_iter.next()) |elem| {
+        sum_x = try sum_x.add(elem);
+    }
+    std.log.info("Sum: {}", .{sum_x});
 }
